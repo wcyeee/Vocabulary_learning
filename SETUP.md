@@ -24,14 +24,11 @@ npm install
    - **anon/public key**（在「Project API keys」下方）
 
 ### 4. 設定環境變數
-1. 複製 `.env.example` 檔案：
-```bash
-cp .env.example .env
-```
+1. 建立.env檔
 
 2. 開啟 `.env` 並替換佔位符值：
 ```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
@@ -55,14 +52,6 @@ npm run dev
 2. 新增您的第一個單字本
 3. 開始新增單字卡片
 
-## 驗證清單
-
-✅ Node 模組已安裝
-✅ Supabase 專案已建立
-✅ 環境變數已設定
-✅ 資料庫資料表已建立（在 Supabase Table Editor 中檢查）
-✅ 應用程式在 localhost:3000 上執行
-✅ 可以建立單字本和卡片
 
 ## 疑難排解
 

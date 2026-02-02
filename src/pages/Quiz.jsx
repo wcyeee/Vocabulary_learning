@@ -127,6 +127,8 @@ export default function Quiz() {
     }
 
     // Move to next card
+    setIsFlipped(false)
+
     if (currentIndex + 1 < cards.length) {
       setCurrentIndex(currentIndex + 1)
       setIsFlipped(false)
@@ -381,6 +383,7 @@ export default function Quiz() {
         {/* Flashcard */}
         <div className="mb-6">
           <div
+            key={currentCard.id}
             className={`flip-card ${isFlipped ? 'flipped' : ''} cursor-pointer`}
             onClick={() => setIsFlipped(!isFlipped)}
           >
@@ -389,7 +392,7 @@ export default function Quiz() {
               <div className="flip-card-front">
                 <div className="card h-full flex flex-col items-center justify-center p-8">
                   <div className="text-center">
-                    <div className="text-5xl font-display font-bold text-gray-900 mb-4">
+                    <div className="text-5xl font-display font-bold text-gray-900 mb-5">
                       {currentCard.english}
                     </div>
                     <p className="text-gray-500 text-sm">Click to reveal</p>
@@ -401,7 +404,7 @@ export default function Quiz() {
               <div className="flip-card-back">
                 <div className="card h-full flex flex-col items-center justify-center p-8 bg-gray-50">
                   <div className="text-center">
-                    <div className="text-5xl font-display font-bold text-gray-900 mb-2">
+                    <div className="text-5xl font-display font-bold text-gray-900 mb-3">
                       {currentCard.english}
                     </div>
                     <div className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm mb-6">

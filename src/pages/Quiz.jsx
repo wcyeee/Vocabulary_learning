@@ -133,6 +133,16 @@ export default function Quiz() {
       setCurrentIndex(currentIndex + 1)
       setIsFlipped(false)
     } else {
+      // Quiz complete - 更新所有相關 notebook 的 last_tested_at
+      const uniqueNotebookIds = [...new Set(cards.map(card => card.notebook_id))]
+      
+      // 批次更新所有測驗過的 notebook
+      for (const notebookId of uniqueNotebookIds) {
+        await supabase
+          .from('notebooks')
+          .update({ last_tested_at: new Date().toISOString() })
+          .eq('id', notebookId)
+      }
       // Quiz complete
       setQuizComplete(true)
     }

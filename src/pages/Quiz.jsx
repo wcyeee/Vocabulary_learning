@@ -1,0 +1,483 @@
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { calculateNextReview, getDueCards, shuffleArray } from '../utils/srmAlgorithm'
+import { motion, AnimatePresence } from 'framer-motion'
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts'
+
+export default function Quiz() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  
+  const [notebooks, setNotebooks] = useState([])
+  const [selectedNotebooks, setSelectedNotebooks] = useState(location.state?.selectedNotebooks || [])
+  const [quizStarted, setQuizStarted] = useState(false)
+  const [quizComplete, setQuizComplete] = useState(false)
+  
+  const [cards, setCards] = useState([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isFlipped, setIsFlipped] = useState(false)
+  
+  const [sessionResults, setSessionResults] = useState({
+    familiar: [],
+    normal: [],
+    again: []
+  })
+
+  useEffect(() => {
+    fetchNotebooks()
+  }, [])
+
+  useEffect(() => {
+  const handleKeyPress = (e) => {
+    // 只在測驗進行中且卡片已翻開時啟用
+    if (!quizStarted || quizComplete) return
+    
+    // 空白鍵翻牌
+    if (e.code === 'Space') {
+      e.preventDefault()
+      setIsFlipped(!isFlipped)
+    }
+    
+    // 只有翻開後才能按數字鍵
+    if (isFlipped) {
+      if (e.code === 'Digit1' || e.code === 'Numpad1') {
+        e.preventDefault()
+        handleAction('again')
+      } else if (e.code === 'Digit2' || e.code === 'Numpad2') {
+        e.preventDefault()
+        handleAction('normal')
+      } else if (e.code === 'Digit3' || e.code === 'Numpad3') {
+        e.preventDefault()
+        handleAction('familiar')
+      }
+    }
+  }
+
+  window.addEventListener('keydown', handleKeyPress)
+  return () => window.removeEventListener('keydown', handleKeyPress)
+}, [quizStarted, quizComplete, isFlipped, currentIndex])
+
+  const fetchNotebooks = async () => {
+    const { data, error } = await supabase
+      .from('notebooks')
+      .select('id, name')
+
+    if (!error && data) {
+      setNotebooks(data)
+    }
+  }
+
+  const startQuiz = async () => {
+    if (selectedNotebooks.length === 0) {
+      alert('Please select at least one notebook')
+      return
+    }
+
+    // Fetch cards from selected notebooks
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .in('notebook_id', selectedNotebooks)
+
+    if (error) {
+      console.error('Error fetching cards:', error)
+      return
+    }
+
+    // Get only due cards and shuffle
+    const dueCards = getDueCards(data || [])
+    const shuffled = shuffleArray(dueCards)
+    
+    if (shuffled.length === 0) {
+      alert('No cards due for review!')
+      return
+    }
+
+    setCards(shuffled)
+    setQuizStarted(true)
+  }
+
+  const handleAction = async (action) => {
+    const currentCard = cards[currentIndex]
+    
+    if (action === 'again') {
+      // Add card to end of current session
+      setCards([...cards, currentCard])
+      // Track that this card needed review
+      setSessionResults(prev => ({
+        ...prev,
+        again: [...prev.again, currentCard]
+      }))
+    } else {
+      // Calculate next review and update DB
+      const updates = calculateNextReview(currentCard, action)
+      
+      await supabase
+        .from('cards')
+        .update(updates)
+        .eq('id', currentCard.id)
+      
+      // Track result
+      setSessionResults(prev => ({
+        ...prev,
+        [action]: [...prev[action], { ...currentCard, ...updates }]
+      }))
+    }
+
+    // Move to next card
+    if (currentIndex + 1 < cards.length) {
+      setCurrentIndex(currentIndex + 1)
+      setIsFlipped(false)
+    } else {
+      // Quiz complete
+      setQuizComplete(true)
+    }
+  }
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1)
+      setIsFlipped(false)
+    }
+  }
+
+  const handleNext = () => {
+    if (currentIndex + 1 < cards.length) {
+      setCurrentIndex(currentIndex + 1)
+      setIsFlipped(false)
+    }
+  }
+
+  const restartQuiz = () => {
+    setQuizComplete(false)
+    setQuizStarted(false)
+    setCards([])
+    setCurrentIndex(0)
+    setIsFlipped(false)
+    setSessionResults({ familiar: [], normal: [], again: [] })
+  }
+
+  // Selection Screen
+  if (!quizStarted) {
+    return (
+      <div>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Dashboard</span>
+        </button>
+
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-display font-bold text-gray-900 mb-2">
+              Start Quiz
+            </h1>
+            <p className="text-gray-600">
+              Select notebooks to include in your study session
+            </p>
+          </div>
+
+          <div className="card p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Select Notebooks
+            </h2>
+            <div className="space-y-2">
+              {notebooks.map(notebook => (
+                <label
+                  key={notebook.id}
+                  className="flex items-center p-3 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedNotebooks.includes(notebook.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedNotebooks([...selectedNotebooks, notebook.id])
+                      } else {
+                        setSelectedNotebooks(selectedNotebooks.filter(id => id !== notebook.id))
+                      }
+                    }}
+                    className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-500"
+                  />
+                  <span className="ml-3 text-gray-900">{notebook.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={startQuiz}
+            disabled={selectedNotebooks.length === 0}
+            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Start Quiz
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Results Screen
+  if (quizComplete) {
+    const totalReviewed = sessionResults.familiar.length + sessionResults.normal.length
+    const uniqueAgainCards = [...new Set(sessionResults.again.map(c => c.id))]
+    
+    const chartData = [
+      { name: 'Familiar', value: sessionResults.familiar.length, color: '#10b981' },
+      { name: 'Normal', value: sessionResults.normal.length, color: '#6b7280' },
+    ]
+
+    return (
+      <div>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-display font-bold text-gray-900 mb-2">
+              Quiz Complete!
+            </h1>
+            <p className="text-gray-600">
+              Great job! Here's your session summary
+            </p>
+          </div>
+
+          <div className="card p-8 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex flex-col justify-center space-y-4">
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-3xl font-bold text-gray-900">{totalReviewed}</div>
+                  <div className="text-sm text-gray-600">Cards Reviewed</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-3xl font-bold text-green-700">{sessionResults.familiar.length}</div>
+                  <div className="text-sm text-green-600">Marked Familiar</div>
+                </div>
+                <div className="text-center p-4 bg-gray-100 rounded-lg">
+                  <div className="text-3xl font-bold text-gray-700">{sessionResults.normal.length}</div>
+                  <div className="text-sm text-gray-600">Marked Normal</div>
+                </div>
+                {uniqueAgainCards.length > 0 && (
+                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <div className="text-3xl font-bold text-red-700">{uniqueAgainCards.length}</div>
+                    <div className="text-sm text-red-600">Needed Review</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {sessionResults.familiar.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-green-700 mb-3">
+                    Familiar Cards ({sessionResults.familiar.length})
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {sessionResults.familiar.map(card => (
+                      <div key={card.id} className="p-2 bg-green-50 rounded text-sm">
+                        <div className="font-medium text-gray-900">{card.english}</div>
+                        <div className="text-gray-600 text-xs">{card.chinese}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {sessionResults.normal.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                    Normal Cards ({sessionResults.normal.length})
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {sessionResults.normal.map(card => (
+                      <div key={card.id} className="p-2 bg-gray-50 rounded text-sm">
+                        <div className="font-medium text-gray-900">{card.english}</div>
+                        <div className="text-gray-600 text-xs">{card.chinese}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {uniqueAgainCards.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-red-700 mb-3">
+                    Cards That Needed Review ({uniqueAgainCards.length})
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {uniqueAgainCards.map(cardId => {
+                      const card = sessionResults.again.find(c => c.id === cardId)
+                      return (
+                        <div key={cardId} className="p-2 bg-red-50 rounded text-sm">
+                          <div className="font-medium text-gray-900">{card.english}</div>
+                          <div className="text-gray-600 text-xs">{card.chinese}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex space-x-4">
+            <button onClick={() => navigate('/')} className="btn-secondary flex-1">
+              Back to Dashboard
+            </button>
+            <button onClick={restartQuiz} className="btn-primary flex-1 flex items-center justify-center space-x-2">
+              <RotateCcw className="w-4 h-4" />
+              <span>New Quiz</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Quiz Screen
+  const currentCard = cards[currentIndex]
+  const progress = ((currentIndex + 1) / cards.length) * 100
+
+  return (
+    <div>
+      <div className="max-w-3xl mx-auto">
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Card {currentIndex + 1} of {cards.length}</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-gray-800 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Flashcard */}
+        <div className="mb-6">
+          <div
+            className={`flip-card ${isFlipped ? 'flipped' : ''} cursor-pointer`}
+            onClick={() => setIsFlipped(!isFlipped)}
+          >
+            <div className="flip-card-inner h-96">
+              {/* Front */}
+              <div className="flip-card-front">
+                <div className="card h-full flex flex-col items-center justify-center p-8">
+                  <div className="text-center">
+                    <div className="text-5xl font-display font-bold text-gray-900 mb-4">
+                      {currentCard.english}
+                    </div>
+                    <p className="text-gray-500 text-sm">Click to reveal</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Back */}
+              <div className="flip-card-back">
+                <div className="card h-full flex flex-col items-center justify-center p-8 bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-5xl font-display font-bold text-gray-900 mb-2">
+                      {currentCard.english}
+                    </div>
+                    <div className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm mb-6">
+                      {currentCard.part_of_speech}
+                    </div>
+                    <div className="text-3xl text-gray-800">
+                      {currentCard.chinese}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={handlePrevious}
+            disabled={currentIndex === 0}
+            className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Previous</span>
+          </button>
+          <button
+            onClick={handleNext}
+            disabled={currentIndex === cards.length - 1}
+            className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>Next</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        {isFlipped && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="grid grid-cols-3 gap-4"
+          >
+            <button
+              onClick={() => handleAction('again')}
+              className="p-4 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-medium transition-colors"
+            >
+              <div className="text-sm mb-1">Again</div>
+              <div className="text-xs opacity-75">Review now</div>
+            </button>
+            <button
+              onClick={() => handleAction('normal')}
+              className="p-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+            >
+              <div className="text-sm mb-1">Normal</div>
+              <div className="text-xs opacity-75">1 day</div>
+            </button>
+            <button
+              onClick={() => handleAction('familiar')}
+              className="p-4 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-colors"
+            >
+              <div className="text-sm mb-1">Familiar</div>
+              <div className="text-xs opacity-75">
+                {currentCard.consecutive_familiar_count === 0 && '2 days'}
+                {currentCard.consecutive_familiar_count === 1 && '4 days'}
+                {currentCard.consecutive_familiar_count >= 2 && '8 days'}
+              </div>
+            </button>
+          </motion.div>
+        )}
+
+        {!isFlipped && (
+          <div className="text-center text-sm text-gray-500">
+            Click the card to reveal the answer
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -9,6 +9,7 @@ export default function AllCards() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('alpha') // 'alpha' or 'date'
+  const [sortOrder, setSortOrder] = useState('asc')
 
   useEffect(() => {
     fetchAllCards()
@@ -16,7 +17,7 @@ export default function AllCards() {
 
   useEffect(() => {
     filterAndSortCards()
-  }, [cards, searchQuery, sortBy])
+  }, [cards, searchQuery, sortBy, sortOrder])
 
   const fetchAllCards = async () => {
     try {
@@ -38,6 +39,25 @@ export default function AllCards() {
     }
   }
 
+  const getDaysUntilReview = (card) => {
+    // New cards or cards without review date are highest priority (0 days)
+    if (card.status === 'new' || !card.next_review_at) {
+      return 0
+    }
+
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const reviewDate = new Date(card.next_review_at)
+    const reviewDay = new Date(reviewDate.getFullYear(), reviewDate.getMonth(), reviewDate.getDate())
+    
+    // Calculate difference in days
+    const diffInMs = reviewDay - today
+    const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24))
+    
+    // If already due (negative or 0), return 0
+    return diffInDays < 0 ? 0 : diffInDays
+  }
+
   const filterAndSortCards = () => {
     let filtered = [...cards]
 
@@ -53,9 +73,28 @@ export default function AllCards() {
 
     // Sort
     if (sortBy === 'alpha') {
-      filtered.sort((a, b) => a.english.localeCompare(b.english))
-    } else {
-      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      filtered.sort((a, b) => {
+        const result = a.english.localeCompare(b.english)
+        return sortOrder === 'asc' ? result : -result
+      })
+    } else if (sortBy === 'date') {
+      filtered.sort((a, b) => {
+        const result = new Date(b.created_at) - new Date(a.created_at)
+        return sortOrder === 'asc' ? result : -result
+      })
+    } else if (sortBy === 'review') {
+      filtered.sort((a, b) => {
+        const daysA = getDaysUntilReview(a)
+        const daysB = getDaysUntilReview(b)
+        const result = daysA - daysB
+        return sortOrder === 'asc' ? result : -result
+      })
+    } else if (sortBy === 'status') {
+      filtered.sort((a, b) => {
+        const statusOrder = { 'new': 0, 'normal': 1, 'familiar': 2 }
+        const result = statusOrder[a.status] - statusOrder[b.status]
+        return sortOrder === 'asc' ? result : -result
+      })
     }
 
     setFilteredCards(filtered)
@@ -89,15 +128,25 @@ export default function AllCards() {
             />
           </div>
           <div className="flex items-center space-x-2">
-            <ArrowUpDown className="w-5 h-5 text-gray-400" />
+            
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="p-2 bg-gray-100 hover:bg-gray-50 rounded-md transition-colors"
+              title={sortOrder === 'asc' ? 'Sort Descending' : 'Sort Ascending'}
+            >
+              <ArrowUpDown className="w-5 h-5 text-gray-500" />
+            </button>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="input"
             >
-              <option value="alpha">A-Z</option>
+              <option value="alpha">Alphabetical</option>
               <option value="date">Date Added</option>
+              <option value="review">Days Until Review</option>
+              <option value="status">Status</option>
             </select>
+           
           </div>
         </div>
         <div className="mt-3 text-sm text-gray-600">
@@ -136,13 +185,23 @@ export default function AllCards() {
                 <span className="text-xs text-gray-500">
                   {card.notebook?.name || 'Unknown notebook'}
                 </span>
-                <span className={`text-xs px-2 py-1 rounded ${
-                  card.status === 'new' ? 'bg-blue-50 text-blue-700' :
-                  card.status === 'normal' ? 'bg-gray-100 text-gray-700' :
-                  'bg-green-50 text-green-700'
-                }`}>
-                  {card.status}
-                </span>
+                <div>
+                  <span>
+                  {card.status !== 'new' && card.next_review_at ? (
+                    <span className="text-xs text-gray-500 mr-3">
+                      Review in <span className="font-bold">{getDaysUntilReview(card)}</span> day
+                      {getDaysUntilReview(card) !== 1 ? 's' : ''}
+                    </span>) : null}
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    card.status === 'new' ? 'bg-blue-50 text-blue-700' :
+                    card.status === 'normal' ? 'bg-gray-100 text-gray-700' :
+                    'bg-green-50 text-green-700'
+                  }`}>
+                    {card.status}
+                  </span>
+                </div>
+                
               </div>
             </motion.div>
           ))}

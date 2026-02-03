@@ -176,8 +176,9 @@ export default function NotebookDetail() {
                     {card.status}
                   </span>
                   {card.current_interval > 0 && (
-                    <span className="text-xs text-gray-500">
-                      Interval: {card.current_interval}d
+                    <span className="text-xs text-gray-500 mr-3">
+                      Review in <span className="font-bold">{card.current_interval}</span> day
+                      {card.current_interval !== 1 ? 's' : ''}
                     </span>
                   )}
                 </div>

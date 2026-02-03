@@ -198,6 +198,17 @@ export default function Quiz() {
               Select Notebooks
             </h2>
             <div className="space-y-2">
+              <label htmlFor="selectAll" className="flex items-center p-3 rounded-md hover:bg-gray-50 cursor-pointer transition-colors">
+                <input type="checkbox" id="selectAll" onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedNotebooks(notebooks.map(n => n.id))
+                  } else {
+                    setSelectedNotebooks([])
+                  }
+                }} className="w-4 h-4 text-gray-900 border-gray-900 rounded focus:ring-gray-500"
+                />
+                <span className="font-bold ml-3 text-gray-900">Select All</span>
+              </label>
               {notebooks.map(notebook => (
                 <label
                   key={notebook.id}

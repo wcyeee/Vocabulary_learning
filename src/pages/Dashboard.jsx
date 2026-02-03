@@ -118,11 +118,9 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-500">
                     {new Date(notebook.created_at).toLocaleDateString()}
                   </p>
-                  {notebook.last_tested_at && (
-                    <p className="text-sm text-gray-500">
-                      Last review on：{new Date(notebook.last_tested_at).toLocaleDateString()}
-                    </p>
-                  )}
+                  <p className="text-sm text-gray-500">
+                    Last review on：{notebook.last_tested_at ? new Date(notebook.last_tested_at).toLocaleDateString() : 'Never'}
+                  </p>
                 </div>
 
                 {/* Stats */}

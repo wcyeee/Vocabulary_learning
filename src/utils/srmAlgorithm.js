@@ -31,9 +31,11 @@ export function calculateNextReview(card, action) {
       break
 
     case 'normal':
-      // Review tomorrow
+      // Review tomorrow at 00:00
       const tomorrow = new Date(now)
       tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(0, 0, 0, 0)  // 設為 00:00:00
+      
       updates = {
         status: CARD_STATUS.NORMAL,
         next_review_at: tomorrow.toISOString(),
@@ -57,6 +59,7 @@ export function calculateNextReview(card, action) {
 
       const nextReview = new Date(now)
       nextReview.setDate(nextReview.getDate() + interval)
+      nextReview.setHours(0, 0, 0, 0)  // 設為 00:00:00
 
       updates = {
         status: CARD_STATUS.FAMILIAR,
@@ -80,6 +83,8 @@ export function calculateNextReview(card, action) {
  */
 export function getDueCards(cards) {
   const now = new Date()
+  // 將當前時間設為今天的 00:00:00
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   
   return cards.filter(card => {
     // New cards are always due
@@ -92,9 +97,11 @@ export function getDueCards(cards) {
       return true
     }
     
-    // Check if review date has passed
+    // Check if review date has passed (only compare dates, not time)
     const reviewDate = new Date(card.next_review_at)
-    return reviewDate <= now
+    const reviewDay = new Date(reviewDate.getFullYear(), reviewDate.getMonth(), reviewDate.getDate())
+    
+    return reviewDay <= today
   })
 }
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Upload } from 'lucide-react'
 import { useCards } from '../hooks/useCards'
 import { motion, AnimatePresence } from 'framer-motion'
+import SpeakButton from '../components/SpeakButton'
 
 export default function NotebookDetail() {
   const { id } = useParams()
@@ -152,9 +153,12 @@ export default function NotebookDetail() {
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      {card.english}
-                    </h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        {card.english}
+                      </h3>
+                      <SpeakButton text={card.english} size="sm" />
+                    </div>
                     <span className="inline-block text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
                       {card.part_of_speech}
                     </span>

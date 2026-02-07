@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Search, ArrowUpDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { motion } from 'framer-motion'
+import SpeakButton from '../components/SpeakButton'
 
 export default function AllCards() {
   const [cards, setCards] = useState([])
@@ -171,10 +172,18 @@ export default function AllCards() {
               className="card p-5"
             >
               <div className="flex justify-between items-start mb-3">
-                <div>
+                <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">
                     {card.english}
                   </h3>
+
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      {card.english}
+                    </h3>
+                    <SpeakButton text={card.english} size="sm" />
+                  </div>
+
                   <span className="inline-block text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
                     {card.part_of_speech}
                   </span>

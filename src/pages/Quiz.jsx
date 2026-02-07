@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { calculateNextReview, getDueCards, shuffleArray } from '../utils/srmAlgorithm'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts'
+import SpeakButton from '../components/SpeakButton'
 
 export default function Quiz() {
   const location = useLocation()
@@ -413,8 +414,11 @@ export default function Quiz() {
               <div className="flip-card-front">
                 <div className="card h-full flex flex-col items-center justify-center p-8">
                   <div className="text-center">
-                    <div className="text-5xl font-display font-bold text-gray-900 mb-5">
-                      {currentCard.english}
+                    <div className="flex items-center justify-center space-x-4 mb-6">
+                      <div className="text-5xl font-display font-bold text-gray-900">
+                        {currentCard.english}
+                      </div>
+                      <SpeakButton text={currentCard.english} size="lg" className="rounded-full"/>
                     </div>
                     <p className="text-gray-500 text-sm">Click to reveal</p>
                   </div>
@@ -425,8 +429,11 @@ export default function Quiz() {
               <div className="flip-card-back">
                 <div className="card h-full flex flex-col items-center justify-center p-8 bg-gray-50">
                   <div className="text-center">
-                    <div className="text-5xl font-display font-bold text-gray-900 mb-3">
-                      {currentCard.english}
+                    <div className="flex items-center justify-center space-x-4 mb-4">
+                      <div className="text-5xl font-display font-bold text-gray-900">
+                        {currentCard.english}
+                      </div>
+                      <SpeakButton text={currentCard.english} size="lg" className="rounded-full"/>
                     </div>
                     <div className="inline-block px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-sm mb-6">
                       {currentCard.part_of_speech}
